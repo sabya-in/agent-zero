@@ -1,14 +1,16 @@
 FROM python:3.11-slim
 
-RUN apt update && apt install -y \
-    build-essential git curl && \
-    rm -rf /var/lib/apt/lists/*
-
+# Set working directory
 WORKDIR /app
 
+# Copy requirements
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Install dependencies
+RUN pip install -r requirements.txt
 
-CMD ["bash"]
+# Copy application code
+COPY /app.py .
+
+# Expose the port the app runs on
+CMD [ "python", "app.py" ]
