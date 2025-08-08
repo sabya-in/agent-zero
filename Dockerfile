@@ -10,7 +10,10 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy application code
-COPY /app.py .
+COPY . .
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
 
 # Expose the port the app runs on
 CMD [ "python", "app.py" ]
