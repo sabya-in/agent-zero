@@ -4,9 +4,12 @@ from google import genai
 from google.genai import types
 from services.gemini_interface import GeminiService
 from models.company import CompanyQuery, FinancialInsights
+from models.news import UserSearchInput
 from utilities.debug import debug_here
 from dotenv import load_dotenv
 from utilities.logger import get_logger
+from typing import Type
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -22,15 +25,23 @@ class GeminiGoogleService(GeminiService):
         self.client = genai.Client(api_key="AIzaSyD-Jn3FAIi7QIG7mHMm8f1RaYx66apV25k")
         self.model = self.client.models
 
-    def get_analysis(self, prompt: str) -> str:
+    def get_analysis(self, prompt: str, prompt_type: str) -> str:
+        SCHEMA_MAP: dict[str, Type[BaseModel]] = {
+            "finance": FinancialInsights,
+            "google_search": UserSearchInput
+        }
 
+        schema_cls = SCHEMA_MAP.get(prompt_type.lower())
+        if schema_cls is None:
+            raise ValueError(f"Unknown prompt_type: {prompt_type}")
+    
         model_version = os.getenv("GEMINI_VERSION")
         if not model_version:
             logger.exception("Please set the GEMINI_VERSION environment variable. in logger {__name__}")
         
         gen_config = types.GenerateContentConfig(
             response_mime_type="application/json",
-            response_schema=FinancialInsights,
+            response_schema=schema_cls,
         )
     
         response = self.model.generate_content(

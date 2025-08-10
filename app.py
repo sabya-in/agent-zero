@@ -1,24 +1,9 @@
-# import os
-# from google import genai
-
-# # The client gets the API key from the environment variable `GEMINI_API_KEY`.
-# api_key = os.getenv("GEMINI_API_KEY")
-# if not api_key:
-#     raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
-
-# client = genai.Client(api_key=api_key)
-
-# prompt = input("Ask Gemini something: ")
-
-# response = client.models.generate_content(
-#     model="gemini-2.5-flash", contents=prompt
-# )
-# print(response.text)
-
 import os
 from dotenv import load_dotenv
 from core.analyzer import FinancialAnalyzer
 from services.gemini_google import GeminiGoogleService
+from services.query_optimizer import QueryOptimizer
+from services.news_fetcher import GoogleNewsFetcher
 from models.company import CompanyQuery
 from utilities.logger import get_logger
 
@@ -26,43 +11,28 @@ load_dotenv()
 logger = get_logger(__name__)
 
 def main():
-    try:
-        logger.info("Starting Financial Analyzer App...")
+    gemini = GeminiGoogleService()
+    optimizer = QueryOptimizer(gemini)
+    fetcher = GoogleNewsFetcher()
 
-        # Take inputs from user
-        company_name = input("Enter the company name: ").strip()
-        ticker = input("Enter the ticker symbol: ").strip()
-        year = int(input("Enter the financial year (YYYY): ").strip())
-        description = input("Enter a short company description: ").strip()
+    user_stmt = input("Enter search (keywords, date, objective) in one line:\n").strip()
+    logger.info("User statement: %s", user_stmt)
 
-        logger.info(f"User provided company: {company_name}, ticker: {ticker}, year: {year}")
+    optimized = optimizer.optimize(user_stmt)
+    logger.info("Optimized query: %s", optimized.model_dump_json())
 
-        # Build query
-        query = CompanyQuery(
-            name=company_name,
-            ticker=ticker,
-            year=year
-        )
+    # for step1 we stop here — show the optimized query
+    print("\n=== OptimizedQuery (step1 output) ===")
+    print(optimized.model_dump_json(indent=2))
 
-        # Create Gemini service
-        gemini_service = GeminiGoogleService()
-
-        # Initialize analyzer
-        analyzer = FinancialAnalyzer(gemini_service)
-
-        # Run analysis
-        insights = analyzer.analyze(query)
-
-        if insights:
-            print("\n=== Financial Insights ===")
-            print(f"Solvency Score: {insights.solvency_score}")
-            print(f"Profitability Ratio: {insights.profitability_ratio}")
-            print(f"Narrative Summary: {insights.narrative_summary}")
-        else:
-            logger.error("Analysis returned no insights.")
-
-    except Exception as e:
-        logger.exception(f"Unhandled exception occurred: {e}")
+    # (optionally) run the fetcher to see sample results — comment this out if you want step-1 only
+    run_fetch = input("\nRun the news fetcher with this query? [y/N]: ").strip().lower()
+    if run_fetch == "y":
+        items = fetcher.search_with_optimized(optimized)
+        logger.info("User statement: %s", items)
+        print(f"\nFound {len(items)} items:")
+        for i, it in enumerate(items, 1):
+            print(f"{i}. {it['title']}\n   {it['link']}\n   {it['snippet']}\n")
 
 if __name__ == "__main__":
     main()
